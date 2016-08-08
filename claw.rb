@@ -67,36 +67,28 @@ AVAILABLE_VERSIONS = %w{
 }
 STABLE_VERSION = AVAILABLE_VERSIONS.last
 VERSIONED_RELEASE_LINK = 'https://s3.amazonaws.com/go-cli/releases/v%{version}/%{release}'
+LINK = 'https://s3debiantest.s3.amazonaws.com/dists/stable/main/binary-amd64'
+LINK2 = 'https://s3debiantest.s3.amazonaws.com/dists/stable/main/binary-amd64/Packages.gz'
 
-unless ENV.has_key?('GA_TRACKING_ID') && ENV.has_key?('GA_DOMAIN')
-  puts "Expected a Google Analytics env vars but they were not set"
-  exit 1
-end
 
 class Claw < Sinatra::Base
-  before do
+
+   before do
     @google_analytics = Gabba::Gabba.new(ENV['GA_TRACKING_ID'], ENV['GA_DOMAIN'], request.user_agent)
     accept_language = request.env['HTTP_ACCEPT_LANGUAGE']
     if accept_language
       @google_analytics.utmul = accept_language
     end
     @google_analytics.set_custom_var(1, 'ip', request.ip, 3)
-    @google_analytics.set_custom_var(2, 'source', params['source'], 3)
+    @google_analytics.set_custom_var(2, 'source', 'apt', 3)
     @google_analytics.set_custom_var(3, 'referer', request.referer, 3)
+    p 'finish setup'
   end
 
   get '/ping' do
     'pong'
   end
 
-  get '/edge' do
-    if !params.has_key?('arch') || EDGE_ARCH_TO_FILENAMES[params['arch']].nil?
-      halt 412, "Invalid 'arch' value, please select one of the following edge: #{EDGE_ARCH_TO_FILENAMES.keys.join(', ')}"
-    end
-
-    @google_analytics.page_view('edge', "edge/#{params['arch']}")
-    redirect EDGE_LINK % {file_name: EDGE_ARCH_TO_FILENAMES[params['arch']]}, 302
-  end
 
   get '/stable' do
     version = params['version'] || STABLE_VERSION
@@ -107,6 +99,16 @@ class Claw < Sinatra::Base
     redirect VERSIONED_RELEASE_LINK % {version: version, release: release_to_filename(release, version)}, 302
   end
 
+  get '/dists/stable/main/binary-amd64' do
+
+    redirect LINK, 302
+  end
+  get '/dists/stable/main/binary-amd64/Packages.gz' do
+
+    p "getting called"
+    @google_analytics.page_view('stable', "stable/amd64")
+    redirect LINK2, 302
+  end
   def validate_stable_link_parameters(release, version)
     if !RELEASE_NAMES.include?(release)
       halt 412, "Invalid 'release' value, please select one of the following releases: #{RELEASE_NAMES.join(', ')}"

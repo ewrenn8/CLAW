@@ -1,0 +1,8 @@
+---
+applications:
+- name: bora
+  memory: 256M
+  instances: 1
+  path: .
+  routes:
+  - route: unbumped-prefect.cfapps.io
