@@ -67,12 +67,10 @@ AVAILABLE_VERSIONS = %w{
 }
 STABLE_VERSION = AVAILABLE_VERSIONS.last
 VERSIONED_RELEASE_LINK = 'https://s3.amazonaws.com/go-cli/releases/v%{version}/%{release}'
-LINK = 'https://s3debiantest.s3.amazonaws.com/dists/stable/main/binary-amd64'
-LINK2 = 'https://s3debiantest.s3.amazonaws.com/dists/stable/main/binary-amd64/Packages.gz'
 
+APT_REPO = 'https://s3debiantest.s3.amazonaws.com/'
 
 class Claw < Sinatra::Base
-
    before do
     @google_analytics = Gabba::Gabba.new(ENV['GA_TRACKING_ID'], ENV['GA_DOMAIN'], request.user_agent)
     accept_language = request.env['HTTP_ACCEPT_LANGUAGE']
@@ -89,7 +87,6 @@ class Claw < Sinatra::Base
     'pong'
   end
 
-
   get '/stable' do
     version = params['version'] || STABLE_VERSION
     release = params['release']
@@ -99,16 +96,22 @@ class Claw < Sinatra::Base
     redirect VERSIONED_RELEASE_LINK % {version: version, release: release_to_filename(release, version)}, 302
   end
 
-  get '/dists/stable/main/binary-amd64' do
-
-    redirect LINK, 302
+  get '/debian/dists/*' do
+    page = File.join('dists', params['splat'].first)
+    @google_analytics.page_view('debian', page)
+    redirect File.join(APT_REPO, page), 302
   end
-  get '/dists/stable/main/binary-amd64/Packages.gz' do
 
-    p "getting called"
-    @google_analytics.page_view('stable', "stable/amd64")
-    redirect LINK2, 302
+  get '/debian/pool/*' do
+    page = File.join('pool', params['splat'].first)
+    @google_analytics.page_view('debian', page)
+
+    filename = page.split('/').last
+    version = /.*_(?<version>.*)_.*/.match(filename).captures.first
+
+    redirect VERSIONED_RELEASE_LINK % {version: version, release: filename}, 302
   end
+
   def validate_stable_link_parameters(release, version)
     if !RELEASE_NAMES.include?(release)
       halt 412, "Invalid 'release' value, please select one of the following releases: #{RELEASE_NAMES.join(', ')}"
